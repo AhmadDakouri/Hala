@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Question, GameState, Lifelines } from './types';
 import { generateQuestions } from './services/geminiService';
@@ -19,13 +18,14 @@ const App: React.FC = () => {
     const [disabledAnswers, setDisabledAnswers] = useState<string[]>([]);
     const [isAudienceModalOpen, setIsAudienceModalOpen] = useState(false);
     const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    // Audio Hooks (placeholders)
-    const { play: playBg, stop: stopBg } = useAudio('/sounds/background.mp3', true);
-    const { play: playSelect } = useAudio('/sounds/select.mp3');
-    const { play: playCorrect } = useAudio('/sounds/correct.mp3');
-    const { play: playIncorrect } = useAudio('/sounds/incorrect.mp3');
-    const { play: playSuspense, stop: stopSuspense } = useAudio('/sounds/suspense.mp3', true);
+    // Audio Hooks with relative paths for better deployment compatibility
+    const { play: playBg, stop: stopBg } = useAudio('./sounds/background.mp3', true);
+    const { play: playSelect } = useAudio('./sounds/select.mp3');
+    const { play: playCorrect } = useAudio('./sounds/correct.mp3');
+    const { play: playIncorrect } = useAudio('./sounds/incorrect.mp3');
+    const { play: playSuspense, stop: stopSuspense } = useAudio('./sounds/suspense.mp3', true);
 
     const loadQuestions = useCallback(async (count: number, existing: Question[]) => {
         const existingTexts = existing.map(q => q.question);
@@ -33,7 +33,8 @@ const App: React.FC = () => {
         setQuestions(prev => [...prev, ...newQuestions]);
     }, []);
 
-    const startGame = useCallback(() => {
+    const startGame = useCallback(async () => {
+        setError(null);
         setQuestions([]);
         setCurrentQuestionIndex(0);
         setSelectedAnswer(null);
@@ -41,11 +42,17 @@ const App: React.FC = () => {
         setDisabledAnswers([]);
         setGameState(GameState.Loading);
         playBg();
-        loadQuestions(5, []).then(() => { // Load first 5 questions
+        try {
+            await loadQuestions(5, []); // Load first 5 questions
             setGameState(GameState.Playing);
-            loadQuestions(TOTAL_QUESTIONS - 5, questions); // Load the rest in background
-        });
-    }, [loadQuestions, playBg, questions]);
+            loadQuestions(TOTAL_QUESTIONS - 5, []); // Load the rest in background
+        } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : "حدث خطأ غير متوقع.";
+            setError(errorMessage);
+            setGameState(GameState.StartScreen);
+            stopBg();
+        }
+    }, [loadQuestions, playBg, stopBg]);
 
     const handleAnswerSelect = useCallback((answer: string) => {
         if (gameState !== GameState.Playing) return;
@@ -108,10 +115,10 @@ const App: React.FC = () => {
         if (lifelines.switch || currentQuestionIndex < 7) return;
         setLifelines(prev => ({ ...prev, switch: true }));
         if (questions.length > currentQuestionIndex + 1) {
-            // Replace current question with the last one in the buffer
+            // Replace current question with the next one by moving current to the end
             const newQuestions = [...questions];
             const switchedQuestion = newQuestions.splice(currentQuestionIndex, 1)[0];
-            newQuestions.push(switchedQuestion); // move it to the end
+            newQuestions.push(switchedQuestion);
             setQuestions(newQuestions);
             setSelectedAnswer(null);
             setDisabledAnswers([]);
@@ -126,6 +133,12 @@ const App: React.FC = () => {
     if (gameState === GameState.StartScreen) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-gray-900 to-blue-900 p-4">
+                {error && (
+                    <div className="bg-red-900 border border-red-700 text-white px-4 py-3 rounded-lg relative mb-6 max-w-lg text-center shadow-lg" role="alert">
+                        <strong className="font-bold block text-lg">حدث خطأ</strong>
+                        <span className="block mt-1">{error}</span>
+                    </div>
+                )}
                 <h1 className="text-5xl md:text-7xl font-bold text-yellow-400 mb-4">مليونير اللغة الألمانية</h1>
                 <p className="text-xl text-gray-300 mb-8">هل أنت مستعد لاختبار معلوماتك في اللغة الألمانية؟</p>
                 <button

@@ -1,12 +1,20 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Question } from '../types';
 
 const API_KEY = process.env.API_KEY;
-if (!API_KEY) {
-  console.error("API_KEY is not set. Please set the API_KEY environment variable.");
-}
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+
+// Lazily initialize the AI client to allow the app to load even if the key is missing.
+// The error will be thrown upon the first API call.
+let ai: GoogleGenAI | null = null;
+const getAiClient = () => {
+  if (!API_KEY) {
+    throw new Error("مفتاح API غير مهيأ. يرجى إعداده في بيئة النشر الخاصة بك للمتابعة.");
+  }
+  if (!ai) {
+    ai = new GoogleGenAI({ apiKey: API_KEY });
+  }
+  return ai;
+};
 
 const questionSchema = {
   type: Type.OBJECT,
@@ -30,6 +38,7 @@ const questionSchema = {
 
 export const generateQuestions = async (count: number, existingQuestions: string[]): Promise<Question[]> => {
   try {
+    const aiClient = getAiClient();
     const prompt = `
     أنت خبير في تدريس اللغة الألمانية للناطقين بالعربية. مهمتك هي إنشاء أسئلة اختبار فريدة للمستوى B1.
     أنشئ مصفوفة JSON تحتوي على ${count} سؤال فريد.
@@ -45,7 +54,7 @@ export const generateQuestions = async (count: number, existingQuestions: string
     7.  لا تقم بتضمين الإجابة الصحيحة في الفراغ '___' في السؤال.
     `;
 
-    const response = await ai.models.generateContent({
+    const response = await aiClient.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
       config: {
@@ -76,12 +85,7 @@ export const generateQuestions = async (count: number, existingQuestions: string
     }
   } catch (error) {
     console.error("Error generating questions:", error);
-    // Fallback to dummy data in case of API error
-    return Array.from({ length: count }, (_, i) => ({
-      id: `fallback-${i}-${Date.now()}`,
-      question: "Fallback Question: Welches Wort passt? Ich gehe ___ die Schule.",
-      options: ["in", "an", "auf", "zu"],
-      correctAnswer: "in",
-    }));
+    // Re-throw the error so the UI component can handle it and display a message.
+    throw error;
   }
 };
