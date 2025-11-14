@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Question } from '../types';
 
-const API_KEY = process.env.API_KEY;
+const API_KEY = "sk-1fa9e391bb76492ab755ec0bb7ad378c";
 
 // Lazily initialize the AI client to allow the app to load even if the key is missing.
 // The error will be thrown upon the first API call.
