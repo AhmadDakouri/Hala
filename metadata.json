@@ -1,0 +1,5 @@
+{
+  "name": "German Millionaire Quiz",
+  "description": "A German language learning quiz game inspired by 'Who Wants to Be a Millionaire?'. It features 15 B1-level questions, interactive lifelines, and dynamic question generation using AI to create a fun and educational experience for Arabic speakers.",
+  "requestFramePermissions": []
+}
